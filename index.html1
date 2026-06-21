@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HM Admin Panel</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .panel { background: #111; border: 2px solid #c00; border-radius: 15px; padding: 30px; width: 400px; }
+        h1 { color: #c00; text-align: center; margin-bottom: 20px; font-size: 24px; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; background: #1a1a1a; color: #fff; border: 1px solid #c00; border-radius: 8px; font-size: 14px; outline: none; }
+        button { padding: 12px 20px; background: #c00; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        button:hover { background: #f00; }
+        .user-list { max-height: 400px; overflow-y: auto; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #1a1a1a; border-radius: 8px; margin-bottom: 8px; }
+        .user-item span { font-size: 14px; }
+        .delete-btn { background: #333; color: #f00; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .delete-btn:hover { background: #c00; color: #fff; }
+        .status { text-align: center; margin-top: 10px; font-size: 12px; color: #888; }
+        .count { text-align: center; color: #c00; margin-bottom: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>HM ADMIN</h1>
+        <div class="count" id="count">Users: 0</div>
+        <div class="input-group">
+            <input type="text" id="nameInput" placeholder="Enter username...">
+            <button onclick="addUser()">ADD</button>
+        </div>
+        <div class="user-list" id="userList"></div>
+        <div class="status" id="status">Loading...</div>
+    </div>
+    <script>
+        const API = "https://api.github.com/repos/masterxnewx-star/Hm-Admin/contents/whitelist.json";
+        const TOKEN = "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";
+        let sha = "";
+
+        async function loadUsers() {
+            try {
+                const res = await fetch(API, {
+                    headers: { "Authorization": "token " + TOKEN }
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+                sha = data.sha;
+                const users = JSON.parse(atob(data.content)).users;
+                document.getElementById("userList").innerHTML = users.map(u => 
+                    `<div class="user-item"><span>${u}</span><span class="delete-btn" onclick="deleteUser('${u}')">DELETE</span></div>`
+                ).join("");
+                document.getElementById("count").textContent = "Users: " + users.length;
+                document.getElementById("status").textContent = "Ready";
+            } catch(e) {
+                document.getElementById("status").textContent = "Error: " + e.message;
+            }
+        }
+
+        async function addUser() {
+            const name = document.getElementById("nameInput").value.trim();
+            if (!name) return;
+            document.getElementById("status").textContent = "Adding...";
+            try {
+                const res = await fetch(API, { headers: { "Authorization": "token " + TOKEN } });
+                const data = await res.json();
+                sha = data.sha;
+                const users = JSON.parse(atob(data.content)).users;
+                if (!users.includes(name)) {
+                    users.push(name);
+                    const content = btoa(JSON.stringify({ users: users }, null, 2));
+                    await fetch(API, {
+                        method: "PUT",
+                        headers: { "Authorization": "token " + TOKEN, "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: "Add " + name, content: content, sha: sha })
+                    });
+                    document.getElementById("nameInput").value = "";
+                    loadUsers();
+                }
+            } catch(e) {
+                document.getElementById("status").textContent = "Error: " + e.message;
+            }
+        }
+
+        async function deleteUser(name) {
+            document.getElementById("status").textContent = "Deleting...";
+            try {
+                const res = await fetch(API, { headers: { "Authorization": "token " + TOKEN } });
+                const data = await res.json();
+                sha = data.sha;
+                const users = JSON.parse(atob(data.content)).users.filter(u => u !== name);
+                const content = btoa(JSON.stringify({ users: users }, null, 2));
+                await fetch(API, {
+                    method: "PUT",
+                    headers: { "Authorization": "token " + TOKEN, "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: "Delete " + name, content: content, sha: sha })
+                });
+                loadUsers();
+            } catch(e) {
+                document.getElementById("status").textContent = "Error: " + e.message;
+            }
+        }
+
+        loadUsers();
+    </script>
+</body>
+</html>
